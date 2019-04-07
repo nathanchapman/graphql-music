@@ -1,0 +1,9 @@
+{
+  "extends": "airbnb",
+  "rules": {
+    "indent": ["warn", 2],
+    "no-console": "off",
+    "new-cap": "off",
+    "class-methods-use-this": "off"
+  }
+}
