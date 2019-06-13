@@ -1,0 +1,5 @@
+# import Artist from 'artist.graphql'
+
+type Query {
+  artists(name: String!): [Artist]!
+}

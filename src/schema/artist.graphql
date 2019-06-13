@@ -1,0 +1,6 @@
+type Artist {
+  id: ID!
+  name: String!
+  url: String
+  genre: String
+}
