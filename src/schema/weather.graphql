@@ -1,0 +1,15 @@
+type Weather {
+  condition: String
+  temperature(unit: TemperatureUnit = F): Temperature
+}
+
+type Temperature {
+  high: Int
+  low: Int
+  unit: TemperatureUnit
+}
+
+enum TemperatureUnit {
+  C
+  F
+}

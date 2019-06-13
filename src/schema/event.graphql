@@ -1,0 +1,12 @@
+# import Ticket from 'ticket.graphql'
+# import Venue from 'venue.graphql'
+# import * from 'weather.graphql'
+
+type Event {
+  date: String!
+  time: String!
+  venue: Venue
+  tickets: Ticket
+  lineup: [String]
+  weather: Weather
+}

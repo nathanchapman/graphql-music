@@ -1,0 +1,8 @@
+type Venue {
+  name: String
+  latitude: String
+  longitude: String
+  city: String
+  region: String
+  country: String
+}

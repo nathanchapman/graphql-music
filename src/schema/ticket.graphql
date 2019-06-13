@@ -1,0 +1,4 @@
+type Ticket {
+  status: String
+  url: String
+}

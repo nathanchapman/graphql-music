@@ -1,7 +1,10 @@
+# import Event from 'event.graphql'
+
 type Artist {
   id: ID!
   name: String!
   url: String
   genre: String
   songs(limit: Int = 10): [Song]!
+  events(limit: Int = 10): [Event]
 }
