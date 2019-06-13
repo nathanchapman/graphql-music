@@ -3,6 +3,7 @@ const { importSchema } = require('graphql-import');
 const resolvers = require('./resolvers');
 const createConnectors = require('./connectors');
 
+const context = { connectors: createConnectors() };
 const typeDefs = importSchema('src/schema/schema.graphql');
 const context = { connectors: createConnectors() };
 
