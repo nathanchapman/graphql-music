@@ -1,7 +1,8 @@
 type Song {
   id: ID!
   name: String!
-  artistName: String
+  artist: Artist
+  artistName: String @deprecated(reason: "Use `artist.name`.")
   album: String
   url: String
   lyrics: String

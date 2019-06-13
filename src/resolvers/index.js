@@ -16,6 +16,9 @@ const resolvers = {
     tabs: ({ name, artistName }) => (
       `http://www.songsterr.com/a/wa/bestMatchForQueryString?s=${name}&a=${artistName}`
     ),
+    artist: ({ artistId }, _, ctx) => (
+      ctx.loaders.artist.load(artistId)
+    ),
   },
   Event: {
     time: event => new Date(event.datetime).toLocaleTimeString(),
