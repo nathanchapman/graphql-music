@@ -12,7 +12,11 @@
     "type": "git",
     "url": "git@github.com:nathanchapman/graphql-music.git"
   },
-  "dependencies": {},
+  "dependencies": {
+    "apollo-server": "2.6.3",
+    "graphql": "14.3.1",
+    "graphql-import": "0.7.1"
+  },
   "devDependencies": {
     "eslint": "5.16.0",
     "eslint-config-airbnb": "17.1.0",
