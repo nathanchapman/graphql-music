@@ -1,5 +1,7 @@
 # import Artist from 'artist.graphql'
+# import Song from 'song.graphql'
 
 type Query {
-  artists(name: String!): [Artist]!
+  artists(name: String!, limit: Int = 5): [Artist]!
+  songs(name: String!, limit: Int = 10): [Song]!
 }

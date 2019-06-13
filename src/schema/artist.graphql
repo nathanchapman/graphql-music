@@ -3,4 +3,5 @@ type Artist {
   name: String!
   url: String
   genre: String
+  songs(limit: Int = 10): [Song]!
 }
