@@ -2,16 +2,13 @@
   "name": "graphql-music",
   "version": "1.0.0",
   "description": "An exercise in building a GraphQL API",
-  "author": "Nathan Chapman <nathanchapman@utexas.edu> (http://nathanchapman.io)",
+  "author": "Nathan Chapman <nathanchapman@utexas.edu> (https://nathanchapman.dev)",
   "main": "src/index.js",
   "scripts": {
     "start": "nodemon ."
   },
   "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "git@github.com:nathanchapman/graphql-music.git"
-  },
+  "repository": "https://github.com/nathanchapman/graphql-music",
   "dependencies": {},
   "devDependencies": {
     "eslint": "5.16.0",
