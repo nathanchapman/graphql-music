@@ -11,7 +11,7 @@
   "repository": "https://github.com/nathanchapman/graphql-music",
   "dependencies": {},
   "devDependencies": {
-    "eslint": "5.16.0",
+    "eslint": "10.1.0",
     "eslint-config-airbnb": "17.1.0",
     "eslint-plugin-import": "2.17.3",
     "eslint-plugin-jsx-a11y": "6.2.1",
