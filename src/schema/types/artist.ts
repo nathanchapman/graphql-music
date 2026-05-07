@@ -1,4 +1,5 @@
 import { builder } from '../builder.ts';
+import { EventRef } from './event.ts';
 import { SongRef } from './song.ts';
 
 export interface Artist {
@@ -21,6 +22,16 @@ export const ArtistRef = builder.objectRef<Artist>('Artist').implement({
       },
       resolve: (artist, { limit }, ctx) => (
         ctx.connectors.iTunes.songs({ name: artist.name, limit })
+      ),
+    }),
+    events: t.field({
+      type: [EventRef],
+      nullable: true,
+      args: {
+        limit: t.arg.int({ defaultValue: 10 }),
+      },
+      resolve: (artist, { limit }, ctx) => (
+        ctx.connectors.bandsInTown.events({ name: artist.name, limit })
       ),
     }),
   }),

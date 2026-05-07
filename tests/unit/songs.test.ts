@@ -5,6 +5,9 @@ import { schema } from '../../src/schema/index.ts';
 
 const context: GraphQLContext = {
   connectors: {
+    bandsInTown: {
+      events: async () => [],
+    },
     iTunes: {
       artists: async ({ name }) => [
         { id: '136975', name, url: null, genre: 'Rock' },
@@ -21,6 +24,13 @@ const context: GraphQLContext = {
     },
     lyrics: {
       bySong: async () => 'Here are the lyrics',
+    },
+    weather: {
+      forecast: async () => ({
+        condition: null,
+        high: null,
+        low: null,
+      }),
     },
   },
 };
