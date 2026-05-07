@@ -1,19 +1,20 @@
-import { builder } from '../builder.ts';
+import { ArtistRef, SongRef } from './refs.ts';
 
-export interface Song {
-  id: string;
-  name: string;
-  artistName: string | null;
-  album: string | null;
-  url: string | null;
-  artistId?: string | null;
-}
-
-export const SongRef = builder.objectRef<Song>('Song').implement({
+SongRef.implement({
   fields: (t) => ({
     id: t.exposeID('id'),
     name: t.exposeString('name'),
-    artistName: t.exposeString('artistName', { nullable: true }),
+    artist: t.field({
+      type: ArtistRef,
+      nullable: true,
+      resolve: ({ artistId }, _args, ctx) => (
+        artistId ? ctx.loaders.artist.load(artistId) : null
+      ),
+    }),
+    artistName: t.exposeString('artistName', {
+      nullable: true,
+      deprecationReason: 'Use `artist.name`.',
+    }),
     album: t.exposeString('album', { nullable: true }),
     url: t.exposeString('url', { nullable: true }),
     lyrics: t.string({

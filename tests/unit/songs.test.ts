@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test';
+import DataLoader from 'dataloader';
 import { graphql } from 'graphql';
 import type { GraphQLContext } from '../../src/context.ts';
 import { schema } from '../../src/schema/index.ts';
@@ -9,6 +10,13 @@ const context: GraphQLContext = {
       events: async () => [],
     },
     iTunes: {
+      artist: async ({ id }) => ({ id, name: 'The Beatles', url: null, genre: 'Rock' }),
+      artistsByIds: async (ids) => ids.map((id) => ({
+        id,
+        name: 'The Beatles',
+        url: null,
+        genre: 'Rock',
+      })),
       artists: async ({ name }) => [
         { id: '136975', name, url: null, genre: 'Rock' },
       ],
@@ -32,6 +40,14 @@ const context: GraphQLContext = {
         low: null,
       }),
     },
+  },
+  loaders: {
+    artist: new DataLoader(async (ids) => ids.map((id) => ({
+      id,
+      name: 'The Beatles',
+      url: null,
+      genre: 'Rock',
+    }))),
   },
 };
 

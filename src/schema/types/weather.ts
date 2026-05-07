@@ -1,24 +1,11 @@
 import { builder } from '../builder.ts';
-
-export type TemperatureUnit = 'C' | 'F';
-
-export interface Weather {
-  condition: string | null;
-  high: number | null;
-  low: number | null;
-}
-
-interface Temperature {
-  high: number;
-  low: number;
-  unit: TemperatureUnit;
-}
+import { TemperatureRef, WeatherRef } from './refs.ts';
 
 const TemperatureUnitRef = builder.enumType('TemperatureUnit', {
   values: ['C', 'F'] as const,
 });
 
-const TemperatureRef = builder.objectRef<Temperature>('Temperature').implement({
+TemperatureRef.implement({
   fields: (t) => ({
     high: t.exposeInt('high'),
     low: t.exposeInt('low'),
@@ -26,7 +13,7 @@ const TemperatureRef = builder.objectRef<Temperature>('Temperature').implement({
   }),
 });
 
-export const WeatherRef = builder.objectRef<Weather>('Weather').implement({
+WeatherRef.implement({
   fields: (t) => ({
     condition: t.exposeString('condition', { nullable: true }),
     temperature: t.field({

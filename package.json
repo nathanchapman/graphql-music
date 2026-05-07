@@ -17,6 +17,7 @@
   "dependencies": {
     "@apollo/server": "^5.0.0",
     "@pothos/core": "^4.0.0",
+    "dataloader": "^2.2.3",
     "graphql": "^16.0.0"
   },
   "devDependencies": {

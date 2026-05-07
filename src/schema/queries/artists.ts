@@ -1,5 +1,5 @@
 import { builder } from '../builder.ts';
-import { ArtistRef } from '../types/artist.ts';
+import { ArtistRef } from '../types/refs.ts';
 
 builder.queryFields((t) => ({
   artists: t.field({

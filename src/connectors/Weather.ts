@@ -1,5 +1,4 @@
-import type { Venue } from '../schema/types/event.ts';
-import type { Weather } from '../schema/types/weather.ts';
+import type { Venue, Weather } from '../schema/types/refs.ts';
 
 export interface WeatherForecastArgs {
   datetime: string;

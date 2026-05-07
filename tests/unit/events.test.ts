@@ -1,7 +1,8 @@
 import { describe, expect, test } from 'bun:test';
+import DataLoader from 'dataloader';
 import { graphql } from 'graphql';
 import type { GraphQLContext } from '../../src/context.ts';
-import type { Event } from '../../src/schema/types/event.ts';
+import type { Event } from '../../src/schema/types/refs.ts';
 import { schema } from '../../src/schema/index.ts';
 
 const event: Event = {
@@ -30,6 +31,8 @@ const context: GraphQLContext = {
       events: async ({ limit }) => [event].slice(0, limit ?? 10),
     },
     iTunes: {
+      artist: async () => null,
+      artistsByIds: async () => [],
       artists: async ({ name }) => [
         { id: '1', name, url: null, genre: 'Rock' },
       ],
@@ -45,6 +48,9 @@ const context: GraphQLContext = {
         low: 10,
       }),
     },
+  },
+  loaders: {
+    artist: new DataLoader(async () => []),
   },
 };
 

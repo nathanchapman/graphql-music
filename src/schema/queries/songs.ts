@@ -1,5 +1,5 @@
 import { builder } from '../builder.ts';
-import { SongRef } from '../types/song.ts';
+import { SongRef } from '../types/refs.ts';
 
 builder.queryFields((t) => ({
   songs: t.field({

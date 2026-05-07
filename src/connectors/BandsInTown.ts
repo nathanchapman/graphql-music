@@ -1,4 +1,4 @@
-import type { Event } from '../schema/types/event.ts';
+import type { Event } from '../schema/types/refs.ts';
 
 export interface EventSearchArgs {
   name: string;

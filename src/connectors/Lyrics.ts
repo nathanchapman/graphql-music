@@ -1,4 +1,4 @@
-import type { Song } from '../schema/types/song.ts';
+import type { Song } from '../schema/types/refs.ts';
 
 interface LyricsResponse {
   lyrics?: string;

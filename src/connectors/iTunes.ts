@@ -1,9 +1,12 @@
-import type { Artist } from '../schema/types/artist.ts';
-import type { Song } from '../schema/types/song.ts';
+import type { Artist, Song } from '../schema/types/refs.ts';
 
 export interface ArtistSearchArgs {
   name: string;
   limit?: number | null;
+}
+
+export interface ArtistLookupArgs {
+  id: string;
 }
 
 export interface SongSearchArgs {
@@ -19,6 +22,7 @@ interface ITunesArtist {
 }
 
 interface ITunesSong {
+  artistId: number;
   artistName: string;
   collectionName?: string;
   trackId: number;
@@ -41,6 +45,38 @@ const fetchJson = async <T>(url: URL): Promise<T> => {
 };
 
 export class ITunesConnector {
+  async artist({ id }: ArtistLookupArgs): Promise<Artist | null> {
+    const [artist] = await this.artistsByIds([id]);
+    return artist;
+  }
+
+  async artistsByIds(ids: readonly string[]): Promise<Array<Artist | null>> {
+    if (ids.length === 0) return [];
+
+    console.log(`looking up artist ${ids.join(',')}`);
+
+    const url = new URL('https://itunes.apple.com/lookup');
+    url.search = new URLSearchParams({ id: ids.join(',') }).toString();
+
+    const body = await fetchJson<ITunesSearchResponse<ITunesArtist>>(url);
+    const artistsById = new Map(
+      body.results.map((artist) => [String(artist.artistId), artist]),
+    );
+
+    return ids.map((id) => {
+      const artist = artistsById.get(id);
+
+      if (!artist) return null;
+
+      return {
+        id: String(artist.artistId),
+        name: artist.artistName,
+        url: artist.artistLinkUrl ?? null,
+        genre: artist.primaryGenreName ?? null,
+      };
+    });
+  }
+
   async artists({ name, limit = 5 }: ArtistSearchArgs): Promise<Artist[]> {
     const url = new URL('https://itunes.apple.com/search');
     url.search = new URLSearchParams({
@@ -77,6 +113,7 @@ export class ITunesConnector {
       artistName: song.artistName,
       album: song.collectionName ?? null,
       url: song.trackViewUrl ?? null,
+      artistId: String(song.artistId),
     }));
   }
 }

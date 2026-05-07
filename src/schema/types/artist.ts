@@ -1,15 +1,6 @@
-import { builder } from '../builder.ts';
-import { EventRef } from './event.ts';
-import { SongRef } from './song.ts';
+import { ArtistRef, EventRef, SongRef } from './refs.ts';
 
-export interface Artist {
-  id: string;
-  name: string;
-  url: string | null;
-  genre: string | null;
-}
-
-export const ArtistRef = builder.objectRef<Artist>('Artist').implement({
+ArtistRef.implement({
   fields: (t) => ({
     id: t.exposeID('id'),
     name: t.exposeString('name'),
