@@ -1,0 +1,29 @@
+name: API smoke tests
+
+on:
+  schedule:
+    - cron: '0 14 * * 1'
+  workflow_dispatch:
+
+jobs:
+  live-api-smoke:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - id: first-monday
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] || [ "$(date -u +%d)" -le 7 ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v4
+        if: steps.first-monday.outputs.run == 'true'
+      - uses: oven-sh/setup-bun@v2
+        if: steps.first-monday.outputs.run == 'true'
+      - run: bun install --frozen-lockfile
+        if: steps.first-monday.outputs.run == 'true'
+      - run: bun run test:integration
+        if: steps.first-monday.outputs.run == 'true'
+        env:
+          BANDSINTOWN_APP_ID: ${{ secrets.BANDSINTOWN_APP_ID }}

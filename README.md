@@ -2,15 +2,21 @@
 
 For this introductory GraphQL workshop, we'll be building an API with music data to support clients that display information about artists, songs, lyrics, tabs (sheet music), and concerts 🎵
 
-This workshop assumes you already have a basic knowledge of [what GraphQL is](https://www.howtographql.com/basics/0-introduction/) and [how to write code in Node.js](https://codeburst.io/the-only-nodejs-introduction-youll-ever-need-d969a47ef219).
+This workshop assumes you already have a basic knowledge of [what GraphQL is](https://www.howtographql.com/basics/0-introduction/) and [how to write code in JavaScript or TypeScript](https://www.typescriptlang.org/docs/).
 
 This workshop typically takes about 2 to 2.5 hours to complete. I've broken it down into sections to make it easier to take breaks and jump back in whenever you're ready. To start at the beginning of any given section, just `git checkout` the branch with that name (i.e. `part1`, `part2`, etc.)
+
+The checkpoint branches build on each other in order:
+
+```text
+main -> part1 -> part2 -> part3 -> part4 -> complete
+```
 
 ## Contents
 
 ### Setup
 
-> Starting branch: [master](https://github.com/nathanchapman/graphql-music/tree/master)
+> Starting branch: [main](https://github.com/nathanchapman/graphql-music/tree/main)
 
 * [Setup](#setup)
 * [Organize](#organize)
@@ -61,50 +67,56 @@ $ git clone git@github.com:nathanchapman/graphql-music.git
 $ cd graphql-music
 ```
 
-Install the dev dependencies
+Install the dependencies with [Bun](https://bun.sh)
 
 ```bash
-$ npm install
+$ bun install
 ```
 
-Install [apollo-server](https://github.com/apollographql/apollo-server), [graphql-js](https://github.com/graphql/graphql-js), and [graphql-import](https://github.com/prisma/graphql-import) 🚀
+This workshop uses [Apollo Server](https://www.apollographql.com/docs/apollo-server/), [GraphQL.js](https://github.com/graphql/graphql-js), TypeScript, and [Pothos](https://pothos-graphql.dev/) 🚀
 
-```bash
-$ npm install apollo-server graphql graphql-import
-```
+Pothos is the biggest change from the original version of this workshop. Instead of writing GraphQL SDL in `.graphql` files and then separately writing resolver maps in JavaScript, Pothos lets us define the GraphQL schema and the resolver for each field in one TypeScript location. That keeps the public API shape and the implementation close together, and TypeScript can check that our resolvers actually return the data promised by the schema.
 
-Take a look at the boilerplate code in `src/index.js`
+Take a look at the boilerplate code in `src/index.ts`
 
-```js
-const { ApolloServer, gql } = require('apollo-server');
+```ts
+import { ApolloServer } from '@apollo/server';
+import { startStandaloneServer } from '@apollo/server/standalone';
+import { createContext } from './context.ts';
+import { schema } from './schema/index.ts';
 
-const typeDefs = gql`
-  type Query {
-    greet(name: String): String!
-  }
-`;
+const server = new ApolloServer({ schema });
 
-const resolvers = {
-  Query: {
-    greet: (_, { name }) => `Hello ${name || 'World'}`,
-  },
-};
-
-const server = new ApolloServer({
-  typeDefs,
-  resolvers,
+const { url } = await startStandaloneServer(server, {
+  context: async () => createContext(),
+  listen: { port: 4000 },
 });
 
-server.listen().then(({ url }) => {
-  console.log(`🚀 Server ready at ${url}`);
+console.log(`Server ready at ${url}`);
+```
+
+The demo query is defined in `src/schema/queries/greet.ts`
+
+```ts
+import { builder } from '../builder.ts';
+
+builder.queryType({
+  fields: (t) => ({
+    greet: t.string({
+      args: {
+        name: t.arg.string(),
+      },
+      resolve: (_parent, { name }) => `Hello ${name ?? 'World'}`,
+    }),
+  }),
 });
 ```
 
-At this point, you should be able to run `npm start` to start the server. Your server will automatically restart each time we make changes. Navigate to <http://localhost:4000> to see the demo server's Playground. [GraphQL Playground](https://www.apollographql.com/docs/apollo-server/features/graphql-playground.html) is a graphical, interactive, in-browser GraphQL IDE where you can explore the schema, craft queries, and view performance information like tracing.
+At this point, you should be able to run `bun start` to start the server. Your server will automatically restart each time we make changes. Navigate to <http://localhost:4000> to see Apollo Sandbox. Apollo Sandbox is a graphical, interactive, in-browser GraphQL IDE where you can explore the schema, craft queries, and view response data.
 
-At any point during this workshop, you can view the current schema by clicking the `SCHEMA` or `DOCS` buttons on the right side of the Playground. The development server will restart when you make changes to files in the project and Playground will automatically pick those up, so there's no need to refresh the page.
+At any point during this workshop, you can view the current schema in Sandbox. The development server will restart when you make changes to files in the project and Sandbox will automatically pick those up, so there's no need to refresh the page.
 
-We can test our demo server by sending our first query in the Playground.
+We can test our demo server by sending our first query in Sandbox.
 
 ```graphql
 {
@@ -122,93 +134,144 @@ The response from a GraphQL server will be [JSON](https://www.w3schools.com/what
 }
 ```
 
+You can also run the automated tests at any point:
+
+```bash
+$ bun test
+$ bun run typecheck
+```
+
+`bun test` runs the unit tests in `tests/unit`. Live API smoke tests live in `tests/integration` so they can run periodically in CI without slowing down normal workshop development:
+
+```bash
+$ bun run test:integration
+```
+
 ## Organize
 
 Let's organize things a little better!
 
-Go ahead and delete the example code for `typeDefs` and `resolvers` from `src/index.js`.
+The starter project already separates the server, context, schema builder, and schema modules:
 
-Create a folder `src/resolvers` and add an `index.js` to it.
+* `src/index.ts` creates the Apollo Server.
+* `src/context.ts` creates the GraphQL context object.
+* `src/schema/builder.ts` creates the Pothos schema builder.
+* `src/schema/index.ts` imports all schema modules and exports the final schema.
+* `src/schema/queries/greet.ts` defines the starter `greet` query.
 
-Create another folder `src/schema` and add a file named `schema.graphql` to it.
+Your `src/schema/builder.ts` should look like this:
 
-Now we need to import these into our `src/index.js`.
+```ts
+import SchemaBuilder from '@pothos/core';
+import type { GraphQLContext } from '../context.ts';
 
-Your `src/index.js` should look like this:
-
-```js
-const { ApolloServer } = require('apollo-server');
-const { importSchema } = require('graphql-import');
-const resolvers = require('./resolvers');
-
-const typeDefs = importSchema('src/schema/schema.graphql');
-
-const server = new ApolloServer({
-  typeDefs,
-  resolvers,
-});
-
-server.listen().then(({ url }) => {
-  console.log(`🚀 Server ready at ${url}`);
-});
+export const builder = new SchemaBuilder<{
+  Context: GraphQLContext;
+}>({});
 ```
+
+This is where TypeScript starts connecting your schema to the rest of the application. The `Context` type tells Pothos which properties are available as the third resolver argument.
+
+Your `src/schema/index.ts` should look like this:
+
+```ts
+import './queries/greet.ts';
+import { builder } from './builder.ts';
+
+export const schema = builder.toSchema();
+```
+
+The imports in this file are important. Pothos schema modules register fields with the shared builder when they are imported, then `builder.toSchema()` creates the GraphQL schema Apollo Server uses.
 
 At this point, your changes should be in line with the starting branch for [part1](https://github.com/nathanchapman/graphql-music/tree/part1).
 
 ## Creating your first Query
 
-We know our clients will need information about `artist`s. Let's define what an artist is by adding the `Artist` type in a new file `src/schema/artist.graphql`.
+We know our clients will need information about `artist`s. Let's define what an artist is by adding an `Artist` type in a new file `src/schema/types/artist.ts`.
 
-```graphql
-type Artist {
-  id: ID!
-  name: String!
-  url: String
-  genre: String
+```ts
+import { builder } from '../builder.ts';
+
+export interface Artist {
+  id: string;
+  name: string;
+  url: string | null;
+  genre: string | null;
 }
+
+export const ArtistRef = builder.objectRef<Artist>('Artist').implement({
+  fields: (t) => ({
+    id: t.exposeID('id'),
+    name: t.exposeString('name'),
+    url: t.exposeString('url', { nullable: true }),
+    genre: t.exposeString('genre', { nullable: true }),
+  }),
+});
 ```
 
 ***Note:*** These fields should be determined by **both** the needs of the clients and capabilities of our backend APIs.
 
-Now let's add our first Query to `src/schema/schema.graphql`
+Now let's add our first Query in a new file `src/schema/queries/artists.ts`
 
-```graphql
-# import Artist from 'artist.graphql'
+```ts
+import { builder } from '../builder.ts';
+import { ArtistRef } from '../types/artist.ts';
 
-type Query {
-  artists(name: String!): [Artist]!
-}
+builder.queryFields((t) => ({
+  artists: t.field({
+    type: [ArtistRef],
+    args: {
+      name: t.arg.string({ required: true }),
+    },
+    resolve: (_parent, { name }) => [
+      { id: 'fake', name, url: null, genre: null },
+    ],
+  }),
+}));
 ```
 
 This query will allow our clients to search for artists and get an array of results!
 
-Notice the `import` statement in our `schema.graphql` and how we're using `importSchema` in our `src/index.js` file? Both of those come from the [graphql-import](https://github.com/prisma/graphql-import) module we installed earlier.
+Notice how the `artists` field has both a `type` and a `resolve` function in the same object? That's Pothos helping us define the GraphQL schema and resolver together. The old workshop used SDL files for the schema and a separate resolver map for the implementation. With Pothos, TypeScript can check the resolver against the schema while we're writing it.
 
-There are [several ways to represent a GraphQL schema](https://blog.apollographql.com/three-ways-to-represent-your-graphql-schema-a41f4175100d), including: using the [GraphQL.js](https://github.com/graphql/graphql-js#using-graphqljs) `GraphQLSchema` and `GraphQLObjectType` classes or [GraphQL Schema Definition Language](https://www.prisma.io/blog/graphql-sdl-schema-definition-language-6755bcb9ce51) (SDL). We'll be using GraphQL SDL in this workshop because it's the most popular and arguably easier to read and understand.
+There are [several ways to represent a GraphQL schema](https://blog.apollographql.com/three-ways-to-represent-your-graphql-schema-a41f4175100d), including: using the [GraphQL.js](https://github.com/graphql/graphql-js#using-graphqljs) `GraphQLSchema` and `GraphQLObjectType` classes, [GraphQL Schema Definition Language](https://www.prisma.io/blog/graphql-sdl-schema-definition-language-6755bcb9ce51) (SDL), or code-first schema builders like Pothos. We'll be using Pothos in this workshop because it keeps the schema and resolvers together while preserving strong TypeScript types.
 
-Further, you can represent GraphQL SDL in a number of ways, including: [strings](https://www.apollographql.com/docs/graphql-tools/generate-schema#example), [graphql-tag](https://github.com/apollographql/graphql-tag#gql) (gql), and directly in `.graphql` or `.gql` files. Any of these approaches work just fine, but we'll be using `.graphql` files to keep things simple and reduce the amount of boilerplate code.
-
-[graphql-import](https://github.com/prisma/graphql-import) gives us the ability to import our schema into JavaScript files using `importSchema` as well as break up our schema into different files by letting us import `.graphql` files into other `.graphql` files. Pretty cool!
+Further, you can represent GraphQL SDL in a number of ways, including: strings, `graphql-tag` (`gql`), and directly in `.graphql` or `.gql` files. Any of these approaches work just fine. Pothos gives us a different code-first approach: our TypeScript code is the source of truth and Pothos builds the GraphQL schema from it.
 
 Now we have our type definitions for what an `Artist` is and how to `Query` for one. Awesome! But how do we actually fetch and return data?
 
 ## Creating your first Resolver
 
-`Resolvers` are functions that are executed by our server to resolve the data for our schema. The object we create containing these functions will have the same shape as our schema. We can define a resolver for any field on any type, but often times we're able to rely on the [default resolver](https://www.apollographql.com/docs/graphql-tools/resolvers/#default-resolver) for trivial resolutions like returning a named property on an object.
+`Resolvers` are functions that are executed by our server to resolve the data for our schema. In Pothos, each field's resolver lives next to the field definition. We can define a resolver for any field on any type, but often times we're able to rely on the default resolver for trivial resolutions like returning a named property on an object.
 
-Add a `Query.artists` resolver to `src/resolvers/index.js`
+The resolver for our first query is the `resolve` function inside `artists`.
 
-```js
-const resolvers = {
-  Query: {
-    artists: (_, { name }) => [{ name }],
-  },
-};
-
-module.exports = resolvers;
+```ts
+builder.queryFields((t) => ({
+  artists: t.field({
+    type: [ArtistRef],
+    args: {
+      name: t.arg.string({ required: true }),
+    },
+    resolve: (_parent, { name }) => [
+      { id: 'fake', name, url: null, genre: null },
+    ],
+  }),
+}));
 ```
 
-Open the Playground at <http://localhost:4000> and send a query for `artists`
+Make sure `src/schema/index.ts` imports the new type and query files:
+
+```ts
+import './types/artist.ts';
+import './queries/artists.ts';
+import './queries/greet.ts';
+import { builder } from './builder.ts';
+
+export const schema = builder.toSchema();
+```
+
+Open Sandbox at <http://localhost:4000> and send a query for `artists`
 
 ```graphql
 {
@@ -220,7 +283,7 @@ Open the Playground at <http://localhost:4000> and send a query for `artists`
 
 You'll receive fake data because we're just mocking an array with one object as the return value of the resolver, but now we have something executing!
 
-*Notice* that if you ask for any non-nullable fields (denoted with a `!` in the schema) like `id`, you'll get an error `Cannot return null for non-nullable field Artist.id`. This is because we aren't returning a value for `id` from our resolver, only the `name`. Asking for normal, nullable fields like `url` and `genre` won't cause an error because they aren't guaranteed by our GraphQL server based on the type definition of `Artist` in the schema. For those nullable fields, you'll just receive `null` when no value is returned from the resolver.
+*Notice* that if you ask for any non-nullable fields like `id`, the fake resolver still needs to return those fields. In the old JavaScript version, you could forget `id` and only discover the mistake at runtime with an error like `Cannot return null for non-nullable field Artist.id`. With TypeScript and Pothos, the `Artist` interface makes that contract visible in code, so we can catch more of these mismatches before the server runs. GraphQL still enforces nullability at runtime, and TypeScript helps us stay honest while implementing it.
 
 ## Let's get some Context
 
@@ -231,111 +294,118 @@ Resolvers take in 4 parameters: `root`, `args`, `context`, and `info`, respectiv
 * `context` an object containing any data that should be made available to all resolvers (think logging functions, session information, data sources used to fetch information, etc.)
 * `info` an object containing information about the query such as the selection set, the AST of the query, parent information, etc. This parameter isn't used as often, and I'd consider it as intended for more advanced cases.
 
+In Pothos, the same values are available to field resolvers:
+
+```ts
+resolve: (root, args, context, info) => {
+  // ...
+}
+```
+
 ## Creating your first Connector
 
 Most GraphQL services follow some sort of `connector` pattern for data access. The idea here is to have a layer on top of a database/backend driver that has GraphQL-specific error handling, logging, batching, and caching. We'll touch more on these topics later. For now, let's just think of it as our sources for fetching data.
 
 You guessed it! The connector will go on the `context` object passed into all resolvers.
 
-Let's create a new folder `src/connectors` with an `index.js`
+Let's create a new folder `src/connectors` with an `index.ts`
 
-```js
-const createConnectors = () => ({});
+```ts
+import { ITunesConnector } from './iTunes.ts';
 
-module.exports = createConnectors;
-```
-
-In our `src/index.js`, let's import that file and update our server to include a new `context` object
-
-```js
-...
-const createConnectors = require('./connectors');
-
-const typeDefs = importSchema('src/schema/schema.graphql');
-const context = { connectors: createConnectors() };
-
-const server = new ApolloServer({
-  typeDefs,
-  resolvers,
-  context,
-});
-...
-```
-
-Let's add a new file, `connectors/iTunes.js`
-
-```js
-class iTunes {}
-
-module.exports = iTunes;
-```
-
-and import it into `connectors/index.js`
-
-```js
-const iTunes = require('./iTunes');
-
-const createConnectors = () => ({
-  iTunes: new iTunes(),
+export const createConnectors = () => ({
+  iTunes: new ITunesConnector(),
 });
 
-module.exports = createConnectors;
+export type Connectors = ReturnType<typeof createConnectors>;
 ```
 
-We'll need to make an [HTTP request](https://www.codecademy.com/articles/http-requests) to the iTunes API in our `iTunes` connector so we'll be using [got](https://github.com/sindresorhus/got), a simplified HTTP request library with support for [Promises](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise).
+In our `src/context.ts`, let's import that file and update our context object
 
-Let's kill our server with `ctrl+c`, install [got](https://github.com/sindresorhus/got), and start the server back up.
+```ts
+import { createConnectors, type Connectors } from './connectors/index.ts';
 
-```bash
-$ npm install got
-$ npm start
+export interface GraphQLContext {
+  connectors: Connectors;
+}
+
+export const createContext = (): GraphQLContext => ({
+  connectors: createConnectors(),
+});
 ```
 
-Now we can make asynchronous HTTP requests!
+Let's add a new file, `src/connectors/iTunes.ts`
 
-At the top of `connectors/iTunes.js`, let's `require` the new dependency
+```ts
+import type { Artist } from '../schema/types/artist.ts';
 
-```js
-const { get } = require('got');
-```
+export interface ArtistSearchArgs {
+  name: string;
+}
 
-And let's add our first method inside the `iTunes` class
+interface ITunesArtist {
+  artistId: number;
+  artistName: string;
+  artistLinkUrl?: string;
+  primaryGenreName?: string;
+}
 
-```js
-async artists({ name }) {
-  const options = {
-    query: {
+interface ITunesSearchResponse<T> {
+  results: T[];
+}
+
+const fetchJson = async <T>(url: URL): Promise<T> => {
+  const response = await fetch(url);
+
+  if (!response.ok) {
+    throw new Error(`iTunes request failed with ${response.status}`);
+  }
+
+  return (await response.json()) as T;
+};
+
+export class ITunesConnector {
+  async artists({ name }: ArtistSearchArgs): Promise<Artist[]> {
+    const url = new URL('https://itunes.apple.com/search');
+    url.search = new URLSearchParams({
       term: name,
       country: 'us',
       entity: 'allArtist',
-    },
-    json: true,
-  };
+    }).toString();
 
-  const { body } = await get('https://itunes.apple.com/search', options);
-  const { results } = body;
-  return results.map(artist => ({
-    name: artist.artistName,
-    url: artist.artistLinkUrl,
-    id: artist.artistId,
-    genre: artist.primaryGenreName,
-  }));
+    const body = await fetchJson<ITunesSearchResponse<ITunesArtist>>(url);
+
+    return body.results.map((artist) => ({
+      name: artist.artistName,
+      url: artist.artistLinkUrl ?? null,
+      id: String(artist.artistId),
+      genre: artist.primaryGenreName ?? null,
+    }));
+  }
 }
 ```
 
+We'll need to make an HTTP request to the iTunes API in our `iTunes` connector. Since we're using Bun and modern TypeScript, we can use the built-in `fetch` API instead of installing a separate HTTP request library.
+
 *Notice* that once we get the results, we're remapping the iTunes API results into objects that match our GraphQL type for `Artist`.
 
-Now we can go back to `resolvers/index.js` and consume this connector from our `context`
+Now we can go back to `src/schema/queries/artists.ts` and consume this connector from our `context`
 
-```js
-Query: {
-  artists: (_, args, ctx) => ctx.connectors.iTunes.artists(args),
-},
+```ts
+builder.queryFields((t) => ({
+  artists: t.field({
+    type: [ArtistRef],
+    args: {
+      name: t.arg.string({ required: true }),
+    },
+    resolve: (_parent, args, ctx) => ctx.connectors.iTunes.artists(args),
+  }),
+}));
 ```
 
 And that's it!
 
-You can open the [Playground](http://localhost:4000) again and send a query for `artists`:
+You can open [Sandbox](http://localhost:4000) again and send a query for `artists`:
 
 ```graphql
 {
@@ -354,67 +424,87 @@ At this point, your changes should be in line with the starting branch for [part
 
 ## Song Data
 
-Create a `Song` type in a new file `src/schema/song.graphql`.
+Create a `Song` type in a new file `src/schema/types/song.ts`.
 
-```graphql
-type Song {
-  id: ID!
-  name: String!
-  artistName: String
-  album: String
-  url: String
+```ts
+import { builder } from '../builder.ts';
+
+export interface Song {
+  id: string;
+  name: string;
+  artistName: string | null;
+  album: string | null;
+  url: string | null;
+  artistId?: string | null;
 }
+
+export const SongRef = builder.objectRef<Song>('Song').implement({
+  fields: (t) => ({
+    id: t.exposeID('id'),
+    name: t.exposeString('name'),
+    artistName: t.exposeString('artistName', { nullable: true }),
+    album: t.exposeString('album', { nullable: true }),
+    url: t.exposeString('url', { nullable: true }),
+  }),
+});
 ```
 
-and add a new `Query` for `songs` in `src/schema/schema.graphql`
+and add a new `Query` for `songs` in a new file `src/schema/queries/songs.ts`
 
-```graphql
-# import Artist from 'artist.graphql'
-# import Song from 'song.graphql'
+```ts
+import { builder } from '../builder.ts';
+import { SongRef } from '../types/song.ts';
 
-type Query {
-  artists(name: String!): [Artist]!
-  songs(name: String!): [Song]!
-}
+builder.queryFields((t) => ({
+  songs: t.field({
+    type: [SongRef],
+    args: {
+      name: t.arg.string({ required: true }),
+    },
+    resolve: (_parent, args, ctx) => ctx.connectors.iTunes.songs(args),
+  }),
+}));
 ```
 
 Let's add another method to the `iTunes` connector
 
-```js
-async songs({ name }) {
-  const options = {
-    query: {
-      term: name,
-      country: 'us',
-      entity: 'song',
-    },
-    json: true,
-  };
+```ts
+async songs({ name }: SongSearchArgs): Promise<Song[]> {
+  const url = new URL('https://itunes.apple.com/search');
+  url.search = new URLSearchParams({
+    term: name,
+    country: 'us',
+    entity: 'song',
+  }).toString();
 
-  const { body } = await get('https://itunes.apple.com/search', options);
-  const { results } = body;
-  return results.map(song => ({
+  const body = await fetchJson<ITunesSearchResponse<ITunesSong>>(url);
+
+  return body.results.map((song) => ({
     name: song.trackName,
     artistName: song.artistName,
-    album: song.collectionName,
-    url: song.trackViewUrl,
-    id: song.trackId,
+    album: song.collectionName ?? null,
+    url: song.trackViewUrl ?? null,
+    id: String(song.trackId),
   }));
 }
 ```
 
 *Notice* we're remapping the results again since the iTunes API definition of a song isn't exactly the same as the `Song` type definition we're using in our GraphQL API.
 
-Now we just have to add a resolver for the `songs` query
+Now we just have to import the new schema files from `src/schema/index.ts`
 
-```js
-Query: {
-  artists: (_, args, ctx) => ctx.connectors.iTunes.artists(args),
-  songs: (_, args, ctx) => ctx.connectors.iTunes.songs(args),
-},
+```ts
+import './types/artist.ts';
+import './types/song.ts';
+import './queries/artists.ts';
+import './queries/songs.ts';
+import './queries/greet.ts';
+import { builder } from './builder.ts';
+
+export const schema = builder.toSchema();
 ```
 
-Open the [Playground](http://localhost:4000) again and send a query for `songs`
+Open [Sandbox](http://localhost:4000) again and send a query for `songs`
 
 ```graphql
 {
@@ -434,29 +524,42 @@ Wow.. there are a lot more results than our clients need to display! This large 
 
 Let's add some limiting to our queries so the clients can specify how many results they need.
 
-In your `schema`, add limit query parameters with some reasonable defaults
+In your Pothos query fields, add limit arguments with some reasonable defaults
 
-```graphql
-type Query {
-  artists(name: String!, limit: Int = 5): [Artist]!
-  songs(name: String!, limit: Int = 10): [Song]!
-}
+```ts
+artists: t.field({
+  type: [ArtistRef],
+  args: {
+    name: t.arg.string({ required: true }),
+    limit: t.arg.int({ defaultValue: 5 }),
+  },
+  resolve: (_parent, args, ctx) => ctx.connectors.iTunes.artists(args),
+})
 ```
 
-In your `iTunes` connector, add `limit` in **both** the `artists` and `songs` method signatures and to their `options.qs` objects
+```ts
+songs: t.field({
+  type: [SongRef],
+  args: {
+    name: t.arg.string({ required: true }),
+    limit: t.arg.int({ defaultValue: 10 }),
+  },
+  resolve: (_parent, args, ctx) => ctx.connectors.iTunes.songs(args),
+})
+```
 
-```js
-async artists({ name, limit }) {
-  const options = {
-    query: {
-      term: name,
-      country: 'us',
-      entity: 'allArtist',
-      limit,
-    },
-    json: true,
-  };
-  ...
+In your `iTunes` connector, add `limit` in **both** the `artists` and `songs` method signatures and to the URL search params
+
+```ts
+async artists({ name, limit = 5 }: ArtistSearchArgs): Promise<Artist[]> {
+  const url = new URL('https://itunes.apple.com/search');
+  url.search = new URLSearchParams({
+    term: name,
+    country: 'us',
+    entity: 'allArtist',
+    limit: String(limit),
+  }).toString();
+  // ...
 }
 ```
 
@@ -528,29 +631,26 @@ But there's still no direct relationship between an `Artist` and their `songs`.
 
 Shouldn't we be able to query for `songs` under an `artist` and vice versa?
 
-In your `schema`, add a `songs` field under the `Artist` type
+In your `Artist` type, add a `songs` field
 
-```graphql
-type Artist {
-  id: ID!
-  name: String!
-  url: String
-  genre: String
-  songs(limit: Int = 10): [Song]!
-}
-```
-
-and in your `resolvers` add a new type resolver object for `Artist` with a resolver for `songs`
-
-```js
-Query: {
-  ...
-},
-Artist: {
-  songs: ({ name }, { limit }, ctx) => (
-    ctx.connectors.iTunes.songs({ name, limit })
-  ),
-},
+```ts
+export const ArtistRef = builder.objectRef<Artist>('Artist').implement({
+  fields: (t) => ({
+    id: t.exposeID('id'),
+    name: t.exposeString('name'),
+    url: t.exposeString('url', { nullable: true }),
+    genre: t.exposeString('genre', { nullable: true }),
+    songs: t.field({
+      type: [SongRef],
+      args: {
+        limit: t.arg.int({ defaultValue: 10 }),
+      },
+      resolve: (artist, { limit }, ctx) => (
+        ctx.connectors.iTunes.songs({ name: artist.name, limit })
+      ),
+    }),
+  }),
+});
 ```
 
 Our `Query.artists` resolver doesn't return the necessary data for `songs`. That's okay! In the next `execution level`, the `Artist.songs` resolver is called on the `Artist` object to fetch this data.
@@ -581,91 +681,81 @@ Now our clients can send more concise queries for artist info and their songs
 
 There's a new feature coming out soon and the clients need to get data for lyrics and tabs (sheet music), but neither of those are supported by the iTunes API.
 
-Go ahead and add these fields to the `Song` type in your `schema`
+Go ahead and add these fields to the `Song` type
 
-```graphql
-type Song {
-  id: ID!
-  name: String!
-  artistName: String
-  album: String
-  url: String
-  lyrics: String
-  tabs: String
-}
+```ts
+export const SongRef = builder.objectRef<Song>('Song').implement({
+  fields: (t) => ({
+    id: t.exposeID('id'),
+    name: t.exposeString('name'),
+    artistName: t.exposeString('artistName', { nullable: true }),
+    album: t.exposeString('album', { nullable: true }),
+    url: t.exposeString('url', { nullable: true }),
+    lyrics: t.string({
+      nullable: true,
+      resolve: (song, _args, ctx) => ctx.connectors.lyrics.bySong(song),
+    }),
+    tabs: t.string({
+      nullable: true,
+      resolve: ({ name, artistName }) => (
+        artistName
+          ? `https://www.songsterr.com/a/wa/bestMatchForQueryString?s=${encodeURIComponent(name)}&a=${encodeURIComponent(artistName)}`
+          : null
+      ),
+    }),
+  }),
+});
 ```
 
-Add a new file `src/connectors/Lyrics.js`
+Add a new file `src/connectors/Lyrics.ts`
 
-```js
-const { get } = require('got');
+```ts
+import type { Song } from '../schema/types/song.ts';
 
-class Lyrics {
-  async bySong({ name, artistName }) {
-    const options = {
-      json: true,
-    };
+interface LyricsResponse {
+  lyrics?: string;
+}
 
-    const url = `https://api.lyrics.ovh/v1/${artistName}/${name}`;
+export class LyricsConnector {
+  async bySong({ name, artistName }: Song): Promise<string | null> {
+    if (!artistName) return null;
+
+    const url = `https://api.lyrics.ovh/v1/${encodeURIComponent(artistName)}/${encodeURIComponent(name)}`;
+
     try {
-      const { body } = await get(url, options);
-      return body.lyrics;
-    } catch (error) {
+      const response = await fetch(url);
+      if (!response.ok) return null;
+
+      const body = (await response.json()) as LyricsResponse;
+      return body.lyrics ?? null;
+    } catch (_error) {
       return null;
     }
   }
 }
-
-module.exports = Lyrics;
 ```
 
-Let's import it in `connectors/index.js`
+Let's import it in `src/connectors/index.ts`
 
-```js
-...
-const Lyrics = require('./Lyrics');
+```ts
+import { ITunesConnector } from './iTunes.ts';
+import { LyricsConnector } from './Lyrics.ts';
 
-const createConnectors = () => ({
-  ...
-  Lyrics: new Lyrics(),
+export const createConnectors = () => ({
+  iTunes: new ITunesConnector(),
+  lyrics: new LyricsConnector(),
 });
 
-module.exports = createConnectors;
-```
-
-and in your `resolvers`, add a new root type resolver object for `Song` with a field resolver for `lyrics`
-
-```js
-Query: {
-  ...
-},
-Artist: {
-  ...
-},
-Song: {
-  lyrics: (song, _, ctx) => ctx.connectors.Lyrics.bySong(song),
-},
+export type Connectors = ReturnType<typeof createConnectors>;
 ```
 
 We have lyrics! 🎤
 
 What about tabs?
 
-[Songterr](https://www.songsterr.com/) provides tabs and an API, but they also have direct URLs we can use for loading sheet music by artist name and song name. That's all our clients needed! In this case, we don't even need a connector or an API call.
+[Songsterr](https://www.songsterr.com/) provides tabs and an API, but they also have direct URLs we can use for loading sheet music by artist name and song name. That's all our clients needed! In this case, we don't even need a connector or an API call.
 
-Just add a field resolver for `tabs` under the `Song` object
-
-```js
-...
-Song: {
-  lyrics: (song, _, ctx) => ctx.connectors.Lyrics.bySong(song),
-  tabs: ({ name, artistName }) => (
-    `http://www.songsterr.com/a/wa/bestMatchForQueryString?s=${name}&a=${artistName}`
-  ),
-},
-```
-
-Open the [Playground](http://localhost:4000) again and send a query for `songs` with lyrics and tabs
+Open [Sandbox](http://localhost:4000) again and send a query for `songs` with lyrics and tabs
 
 ```graphql
 {
@@ -687,118 +777,126 @@ At this point, your changes should be in line with the starting branch for [part
 
 ## Events
 
-Let's add some `Event`-related types to our `schema` (think concerts, festivals, etc.)
+Let's add some `Event`-related types to our schema (think concerts, festivals, etc.)
 
-> src/schema/event.graphql
+```ts
+export interface Ticket {
+  status: string | null;
+  url: string | null;
+  type?: string | null;
+}
 
-```graphql
-# import Ticket from 'ticket.graphql'
-# import Venue from 'venue.graphql'
+export interface Venue {
+  name: string | null;
+  latitude: string | null;
+  longitude: string | null;
+  city: string | null;
+  region: string | null;
+  country: string | null;
+}
 
-type Event {
-  date: String!
-  time: String!
-  venue: Venue
-  tickets: Ticket
-  lineup: [String]
+export interface Event {
+  datetime: string;
+  venue: Venue | null;
+  offers: Ticket[];
+  lineup: string[] | null;
 }
 ```
 
-> src/schema/ticket.graphql
+Add Pothos object types for `Event`, `Ticket`, and `Venue` in `src/schema/types/event.ts`
 
-```graphql
-type Ticket {
-  status: String
-  url: String
-}
-```
-
-> src/schema/venue.graphql
-
-```graphql
-type Venue {
-  name: String
-  latitude: String
-  longitude: String
-  city: String
-  region: String
-  country: String
-}
+```ts
+export const EventRef = builder.objectRef<Event>('Event').implement({
+  fields: (t) => ({
+    datetime: t.string({
+      resolve: (event) => new Date(event.datetime).toISOString(),
+    }),
+    venue: t.field({
+      type: VenueRef,
+      nullable: true,
+      resolve: (event) => event.venue,
+    }),
+    tickets: t.field({
+      type: TicketRef,
+      nullable: true,
+      resolve: (event) => event.offers.find((offer) => offer.type === 'Tickets') ?? null,
+    }),
+    lineup: t.exposeStringList('lineup', { nullable: true }),
+  }),
+});
 ```
 
 and add an `events` field under the `Artist` type
 
-```graphql
-# import Event from 'event.graphql'
-
-type Artist {
-  id: ID!
-  name: String!
-  url: String
-  genre: String
-  songs(limit: Int = 10): [Song]!
-  events(limit: Int = 10): [Event]
-}
+```ts
+events: t.field({
+  type: [EventRef],
+  nullable: true,
+  args: {
+    limit: t.arg.int({ defaultValue: 10 }),
+  },
+  resolve: (artist, { limit }, ctx) => (
+    ctx.connectors.bandsInTown.events({ name: artist.name, limit })
+  ),
+}),
 ```
 
 We'll need a connector for event data. For this we'll be using the [BandsInTown API](https://app.swaggerhub.com/apis/Bandsintown/PublicAPI/3.0.0#/).
 
-Add a new file `connectors/BandsInTown.js`
+Add a new file `src/connectors/BandsInTown.ts`
 
-```js
-const { get } = require('got');
+```ts
+import type { Event } from '../schema/types/event.ts';
 
-class BandsInTown {
-  async events({ name, limit }) {
-    const options = {
-      json: true,
-    };
-
-    const url = `https://rest.bandsintown.com/artists/${name}/events?app_id=qfasdfasdf`;
-    const { body } = await get(url, options);
-    return body.slice(0, limit);
-  }
+export interface EventSearchArgs {
+  name: string;
+  limit?: number | null;
 }
 
-module.exports = BandsInTown;
+export class BandsInTownConnector {
+  async events({ name, limit = 10 }: EventSearchArgs): Promise<Event[]> {
+    const url = new URL(`https://rest.bandsintown.com/artists/${encodeURIComponent(name)}/events`);
+    url.search = new URLSearchParams({
+      app_id: process.env.BANDSINTOWN_APP_ID || 'js_example',
+    }).toString();
+
+    const response = await fetch(url);
+
+    if (!response.ok) {
+      throw new Error(`Bandsintown request failed with ${response.status}`);
+    }
+
+    const body = (await response.json()) as Event[];
+
+    return body.slice(0, limit ?? 10);
+  }
+}
 ```
 
-and import it in `connectors/index.js`
+Bandsintown currently requires an `app_id`. The workshop uses their public example `js_example` value by default so the exercise works without setup, but you can set `BANDSINTOWN_APP_ID` if you have your own API key.
 
-```js
-...
-const BandsInTown = require('./BandsInTown');
+and import it in `src/connectors/index.ts`
 
-const createConnectors = () => ({
-  ...
-  BandsInTown: new BandsInTown(),
+```ts
+import { BandsInTownConnector } from './BandsInTown.ts';
+import { ITunesConnector } from './iTunes.ts';
+import { LyricsConnector } from './Lyrics.ts';
+
+export const createConnectors = () => ({
+  bandsInTown: new BandsInTownConnector(),
+  iTunes: new ITunesConnector(),
+  lyrics: new LyricsConnector(),
 });
-
-module.exports = createConnectors;
 ```
 
-Add the `events` field resolver under the `Artist` root object
-
-```js
-...
-Artist: {
-  ...
-  events: ({ name }, { limit }, ctx) => (
-    ctx.connectors.BandsInTown.events({ name, limit })
-  ),
-},
-...
-```
-
-Open the [Playground](http://localhost:4000) again and send a query for `artists` with events
+Open [Sandbox](http://localhost:4000) again and send a query for `artists` with events
 
 ```graphql
 {
   artists(name: "Blink-182", limit: 1) {
     name
     events {
-      date
-      time
+      datetime
       venue {
         name
         latitude
@@ -817,74 +915,82 @@ Open the [Playground](http://localhost:4000) again and send a query for `artists
 }
 ```
 
-Uh oh! We got a `Cannot return null for non-nullable field Event.date` error from our GraphQL server.
+In the old resolver-map version of this workshop, it was easy to add date/time fields to the GraphQL schema without implementing resolvers for them, which caused errors like `Cannot return null for non-nullable field Event.date`. With Pothos, the resolver is defined right next to the field. We'll expose one `datetime` field in UTC/Zulu format so clients get stable values regardless of the server's locale or timezone:
 
-It looks like both `date` and `time` are `null` even though we're guaranteeing them as non-nullable in our schema (denoted with a `!`)
-
-What caused the `null` values?
-
-The BandsInTown API returned an object with a field named `datetime` instead of two different fields for `date` and `time`. Let's resolve the time and date from `datetime` using field resolvers on the `Event` type so our clients have the data they need.
-
-```js
-...
-Event: {
-  time: event => new Date(event.datetime).toLocaleTimeString(),
-  date: event => new Date(event.datetime).toLocaleDateString(),
-},
+```ts
+datetime: t.string({
+  resolve: (event) => new Date(event.datetime).toISOString(),
+}),
 ```
 
-That's fixed, but `tickets` is `null`!
+The response from `BandsInTown` has an `offers` array instead of a `tickets` field.
 
-The response from `BandsInTown` has an `offers` array instead.
-
-```js
-Event: {
-  ...
-  tickets: event => event.offers.find(offer => offer.type === 'Tickets'),
-},
+```ts
+tickets: t.field({
+  type: TicketRef,
+  nullable: true,
+  resolve: (event) => event.offers.find((offer) => offer.type === 'Tickets') ?? null,
+}),
 ```
 
 No more errors or `null` — awesome!
 
 ## Weather
 
-Now let's add some `Weather` types to our `schema` so we can fetch the weather conditions on the day of an `Event`
+Now let's add some `Weather` types to our schema so we can fetch the weather conditions on the day of an `Event`
 
-> src/schema/weather.graphql
+```ts
+export type TemperatureUnit = 'C' | 'F';
 
-```graphql
-type Weather {
-  condition: String
-  temperature(unit: TemperatureUnit = F): Temperature
+export interface Weather {
+  condition: string | null;
+  high: number | null;
+  low: number | null;
 }
+```
 
-type Temperature {
-  high: Int
-  low: Int
-  unit: TemperatureUnit
-}
+```ts
+builder.enumType('TemperatureUnit', {
+  values: ['C', 'F'] as const,
+});
 
-enum TemperatureUnit {
-  C
-  F
-}
+export const WeatherRef = builder.objectRef<Weather>('Weather').implement({
+  fields: (t) => ({
+    condition: t.exposeString('condition', { nullable: true }),
+    temperature: t.field({
+      type: TemperatureRef,
+      nullable: true,
+      args: {
+        unit: t.arg({ type: 'TemperatureUnit', defaultValue: 'F' }),
+      },
+      resolve: ({ high, low }, { unit }) => {
+        if (high === null || low === null) return null;
+
+        const fahrenheit = (celsius: number) => celsius * 9 / 5 + 32;
+        const h = unit === 'C' ? high : fahrenheit(high);
+        const l = unit === 'C' ? low : fahrenheit(low);
+
+        return {
+          unit,
+          high: Math.round(h),
+          low: Math.round(l),
+        };
+      },
+    }),
+  }),
+});
 ```
 
 Under the `Event` type, add a `weather` field
 
-```graphql
-# import Ticket from 'ticket.graphql'
-# import Venue from 'venue.graphql'
-# import * from 'weather.graphql'
-
-type Event {
-  date: String!
-  time: String!
-  venue: Venue
-  tickets: Ticket
-  lineup: [String]
-  weather: Weather
-}
+```ts
+weather: t.field({
+  type: WeatherRef,
+  nullable: true,
+  resolve: ({ datetime, venue }, _args, ctx) => (
+    venue ? ctx.connectors.weather.forecast({ datetime, venue }) : null
+  ),
+}),
 ```
 
 This workshop used to consume the Yahoo Weather API until the public version was removed in January 2019. It was here that I'd point out that Yahoo went as far as to create their own custom query language for interacting with their APIs called `yql`.
@@ -919,93 +1025,49 @@ What if we could send them a GraphQL query instead?
 
 Maybe some day.. 🤞
 
-We'll use [MetaWeather](https://www.metaweather.com/api/) instead. It's a bit easier to work with anyways.
+The old version of this workshop used MetaWeather next, but that public API is no longer available. We'll use [Open-Meteo](https://open-meteo.com/) instead because it does not require an API key for this workshop.
 
-Add a new connector `connectors/Weather.js`
+Add a new connector `src/connectors/Weather.ts`
 
-```js
-const { get } = require('got');
+```ts
+export class WeatherConnector {
+  async forecast({ datetime, venue }: WeatherForecastArgs): Promise<Weather> {
+    const date = new Date(datetime).toISOString().slice(0, 10);
+    const latitude = venue.latitude ?? '';
+    const longitude = venue.longitude ?? '';
 
-const format = weather => ({
-  condition: weather.weather_state_name,
-  high: weather.max_temp,
-  low: weather.min_temp,
-});
+    const url = new URL('https://archive-api.open-meteo.com/v1/archive');
+    url.search = new URLSearchParams({
+      latitude,
+      longitude,
+      start_date: date,
+      end_date: date,
+      daily: 'temperature_2m_max,temperature_2m_min,weather_code',
+      timezone: 'auto',
+    }).toString();
 
-class Weather {
-  async forecast({ datetime, venue }) {
-    const date = new Date(datetime);
-    const [year, month, day] = [
-      date.getFullYear(), date.getMonth() + 1, date.getDate(),
-    ];
+    const response = await fetch(url);
 
-    const { latitude, longitude } = venue;
+    if (!response.ok) {
+      throw new Error(`Weather request failed with ${response.status}`);
+    }
 
-    const location = {
-      query: {
-        lattlong: `${latitude},${longitude}`,
-      },
-      json: true,
+    const body = (await response.json()) as OpenMeteoArchiveResponse;
+
+    return {
+      condition: describeWeatherCode(body.daily.weather_code[0] ?? null),
+      high: body.daily.temperature_2m_max[0] ?? null,
+      low: body.daily.temperature_2m_min[0] ?? null,
     };
-
-    const {
-      body: [{ woeid }], // use the first city woeid returned from the search
-    } = await get('https://www.metaweather.com/api/location/search/', location);
-
-    const options = { json: true };
-    const weather = y => m => d => `https://www.metaweather.com/api/location/${woeid}/${y}/${m}/${d}/`;
-
-    // Forecasts only work 5-10 days in the future
-    const { body: [forecasted] } = await get(
-      weather(year)(month)(day),
-      options,
-    );
-
-    if (forecasted) return format(forecasted);
-
-    // Fallback to last year's weather report
-    const { body: [historical] } = await get(
-      weather(year-1)(month)(day),
-      options,
-    );
-
-    if (historical) return format(historical);
-
-    throw new Error('Unable to retrieve weather data for event');
   }
 }
-
-module.exports = Weather;
 ```
 
-Initialize your `Weather` connector in `connectors/index.js` like you've done with the other connectors
-
-```js
-...
-const Weather = require('./Weather');
-
-const createConnectors = () => ({
-  ...
-  Weather: new Weather(),
-});
-
-module.exports = createConnectors;
-```
-
-Add a field resolver for `weather` under the `Event` object
-
-```js
-Event: {
-  ...
-  weather: ({ datetime, venue }, _, ctx) => (
-    ctx.connectors.Weather.forecast({ datetime, venue })
-  ),
-},
-```
+Initialize your `Weather` connector in `src/connectors/index.ts` like you've done with the other connectors.
 
 *Notice* we're using the `datetime` from the root object (`Event` returned by BandsInTown) even though we didn't publicly expose that field in our GraphQL API. GraphQL gives us the entire object returned from the previous execution level as `root` (the first argument). This is a great way to pass data from a root object to the next execution level without exposing the implementation details of your API!
 
-Open the [Playground](http://localhost:4000) again and send a query for `artists` with `events` and `weather`
+Open [Sandbox](http://localhost:4000) again and send a query for `artists` with `events` and `weather`
 
 ```graphql
 {
@@ -1020,8 +1082,7 @@ Open the [Playground](http://localhost:4000) again and send a query for `artists
         }
         condition
       }
-      date
-      time
+      datetime
       venue {
         name
         latitude
@@ -1040,15 +1101,19 @@ Open the [Playground](http://localhost:4000) again and send a query for `artists
 }
 ```
 
-`temperature` is `null` 😧
+The weather API returns temperatures in Celsius. This doesn't quite line up with our schema! They should be under the `Weather.temperature` object and return the correct values for both Celsius and Fahrenheit. The `Weather.temperature` resolver uses the `high` and `low` fields from the `Weather` object and handles conversion.
 
-We're returning the temperatures in our Weather connector as `Weather.high` and `Weather.low` (both in Celsius from the MetaWeather API). This doesn't quite line up with our schema! They should be under the `Weather.temperature` object and return the correct values for both Celsius and Farenheit. Let's fix it by adding a resolver for `Weather.temperature` that uses the `high` and `low` fields from the `Weather` object and handles conversion.
+```ts
+temperature: t.field({
+  type: TemperatureRef,
+  nullable: true,
+  args: {
+    unit: t.arg({ type: 'TemperatureUnit', defaultValue: 'F' }),
+  },
+  resolve: ({ high, low }, { unit }) => {
+    if (high === null || low === null) return null;
 
-```js
-...
-Weather: {
-  temperature: ({ high, low }, { unit }) => {
-    const fahrenheit = c => c * 9 / 5 + 32
+    const fahrenheit = (celsius: number) => celsius * 9 / 5 + 32;
     const h = unit === 'C' ? high : fahrenheit(high);
     const l = unit === 'C' ? low : fahrenheit(low);
 
@@ -1058,12 +1123,12 @@ Weather: {
       low: Math.round(l),
     };
   },
-},
+}),
 ```
 
 Try the query again and make sure to prepare for the weather! ☔️⛅️😎
 
-Our clients can still get `null` for `weather`, but that's only if the MetaWeather API fails to return both the forecast and historical data. This is a lot less likely, but if it does fail, the clients will also get an error telling them about the issue.
+Our clients can still get `null` for `weather`, but that's only if the weather API fails to return data. This is a lot less likely, but if it does fail, the clients will also get an error telling them about the issue.
 
 ```json
 {
@@ -1074,7 +1139,7 @@ Our clients can still get `null` for `weather`, but that's only if the MetaWeath
         "events": [
           {
             "weather": null,
-            "date": "2019-6-12"
+            "datetime": "2019-06-12T20:30:00.000Z"
           }
         ]
       }
@@ -1083,27 +1148,13 @@ Our clients can still get `null` for `weather`, but that's only if the MetaWeath
   "errors": [
     {
       "message": "Unable to retrieve weather data for event",
-      "locations": [
-        {
-          "line": 5,
-          "column": 7
-        }
-      ],
-      "path": ["artists", 0, "events", 0, "weather"],
-      "extensions": {
-        "code": "INTERNAL_SERVER_ERROR",
-        "exception": {
-          "stacktrace": [
-            "Error: Unable to retrieve weather data for event"
-          ]
-        }
-      }
+      "path": ["artists", 0, "events", 0, "weather"]
     }
-  ],
+  ]
 }
 ```
 
-Errors are very useful! We can use errors to intelligently inform our clients about issues with provided inputs, API degredations, and many other types of issues. Remember to not expose sensitive information like unexpected errors, stacktraces, etc. in production! See [Apollo's Error handling guide](https://www.apollographql.com/docs/apollo-server/features/errors/) for more information.
+Errors are very useful! We can use errors to intelligently inform our clients about issues with provided inputs, API degradations, and many other types of issues. Remember to not expose sensitive information like unexpected errors, stacktraces, etc. in production! See [Apollo's Error handling guide](https://www.apollographql.com/docs/apollo-server/data/errors/) for more information.
 
 At this point, your changes should be in line with the starting branch for [part4](https://github.com/nathanchapman/graphql-music/tree/part4).
 
@@ -1115,70 +1166,65 @@ Remember earlier when we set up a graph relationship between artists and their s
 
 We should create a similar relationship between a `Song` and its `Artist`.
 
-In your `schema`, add a field for `artist` under the `Song` type
+In your `Song` type, add a field for `artist`
 
-```graphql
-type Song {
-  ...
-  artist: Artist
-}
+```ts
+artist: t.field({
+  type: ArtistRef,
+  nullable: true,
+  resolve: ({ artistId }, _args, ctx) => (
+    artistId ? ctx.connectors.iTunes.artist({ id: artistId }) : null
+  ),
+}),
 ```
 
 We'll need to modify our `songs` method in our `iTunes` connector to return the artist's ID
 
-```js
+```ts
 return {
-  ...
-  artistId: song.artistId,
+  // ...
+  artistId: String(song.artistId),
 };
 ```
 
 Let's add another method to our `iTunes` connector to lookup an artist by ID
 
-```js
-async artist({ id }) {
-  const options = {
-    query: { id },
-    json: true,
-  };
+```ts
+async artist({ id }: ArtistLookupArgs): Promise<Artist | null> {
+  const url = new URL('https://itunes.apple.com/lookup');
+  url.search = new URLSearchParams({ id }).toString();
 
   console.log(`looking up artist ${id}`);
 
-  const { body } = await get('https://itunes.apple.com/lookup', options);
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`iTunes request failed with ${response.status}`);
+  }
+
+  const body = (await response.json()) as ITunesSearchResponse<ITunesArtist>;
   const artist = body.results[0];
+
+  if (!artist) return null;
 
   return {
     name: artist.artistName,
-    url: artist.artistLinkUrl,
-    id: artist.artistId,
-    genre: artist.primaryGenreName,
+    url: artist.artistLinkUrl ?? null,
+    id: String(artist.artistId),
+    genre: artist.primaryGenreName ?? null,
   };
 }
 ```
 
-and add a field `resolver` for `artist` under the `Song` root object
+Lastly, let's deprecate the old `artistName` field in our schema so that new clients won't know about that field. It will still work as expected for older clients that may still be requesting it and you should keep it around until you can confirm it's not being called anymore (think mobile apps that haven't been updated yet!)
 
-```js
-Song: {
-  ...
-  artist: ({ artistId }, _, ctx) => (
-    ctx.connectors.iTunes.artist({ id: artistId })
-  ),
-},
+```ts
+artistName: t.exposeString('artistName', {
+  nullable: true,
+  deprecationReason: 'Use `artist.name`.',
+}),
 ```
 
-Lastly, let's deprecate the old `artistName` field in our `schema` so that new clients won't know about that field. It will still work as expected for older clients that may still be requesting it and you should keep it around until you can confirm it's not being called anymore (think mobile apps that haven't been updated yet!)
-
-```graphql
-type Song {
-  ...
-  artist: Artist
-  artistName: String @deprecated(reason: "Use `artist.name`.")
-  ...
-}
-```
-
-Open the [Playground](http://localhost:4000) again and send a query for `songs` with artist details
+Open [Sandbox](http://localhost:4000) again and send a query for `songs` with artist details
 
 ```graphql
 {
@@ -1206,21 +1252,7 @@ We also have a working graph relationship between songs and artists — awesome!
 
 This means we're fetching the same data multiple times from the iTunes API. This can overload your backend APIs and will cause your clients to spend additional time waiting for a response.
 
-Let's turn on `tracing` to keep an eye on the performance as we try to fix this.
-
-In `src/index.js`, let's set `tracing: true` in the server configuration
-
-```js
-...
-const server = new ApolloServer({
-  tracing: true,
-  typeDefs,
-  resolvers,
-  context,
-});
-```
-
-Now back in `Playground`, click the `TRACING` tab in the bottom right corner and run your query again. Here we can see exactly how long it took for each resolver to run.
+Apollo Server's built-in tracing plugin and external observability tools can help you keep an eye on resolver performance as you try to fix this.
 
 ## N+1 Queries
 
@@ -1234,49 +1266,43 @@ This could definitely cause performance issues for both our clients and our back
 
 ## DataLoader (Batching & Caching)
 
-[DataLoader](https://github.com/facebook/dataloader#using-with-graphql) will coalesce all individual `load`s which occur within a single frame of execution (a single tick of the event loop) and then call your batch function with all requested keys. The result is cached on the request, so additional calls to `load` for the same key on the same request will return the cached value.
+[DataLoader](https://github.com/graphql/dataloader#using-with-graphql) will coalesce all individual `load`s which occur within a single frame of execution (a single tick of the event loop) and then call your batch function with all requested keys. The result is cached on the request, so additional calls to `load` for the same key on the same request will return the cached value.
 
 Let's kill our server to install `dataloader` and start it back up
 
 ```bash
-$ npm install dataloader
-$ npm start
+$ bun add dataloader
+$ bun start
 ```
 
-In `src/index.js`, we'll want to `require` dataloader at the top
+In `src/context.ts`, we'll want to import dataloader at the top
 
-```js
-const DataLoader = require('dataloader');
+```ts
+import DataLoader from 'dataloader';
 ```
 
-We'll also want to change our `context` to include a `loaders` field so they can be used in all `resolvers`.
+We'll also want to change our context to include a `loaders` field so they can be used in all resolvers.
 
-Our `context` is just a static object, but we'll need a new context to be generated for each request so our cache isn't [held across requests](https://github.com/facebook/dataloader#creating-a-new-dataloader-per-request). This is generally a good idea whether you're using DataLoaders or not. You might want to have a cache in your connectors themselves, but those caches generally shouldn't be shared across requests or between different users. So let's make `context` a function!
+Our context already gets generated for each request in `src/index.ts`, which means our cache won't be [held across requests](https://github.com/graphql/dataloader#creating-a-new-dataloader-per-request). This is generally a good idea whether you're using DataLoaders or not. You might want to have a cache in your connectors themselves, but those caches generally shouldn't be shared across requests or between different users.
 
-```js
-const context = () => {
+```ts
+export const createContext = (): GraphQLContext => {
   const connectors = createConnectors();
   const loaders = {};
 
   return { connectors, loaders };
 };
-
-const server = new ApolloServer({
-  tracing: true,
-  typeDefs,
-  resolvers,
-  context,
-});
 ```
 
 and we'll create our first loader for `artist`
 
-```js
-const context = () => {
+```ts
+export const createContext = (): GraphQLContext => {
   const connectors = createConnectors();
+
   const loaders = {
-    artist: new DataLoader(IDs => Promise.resolve(
-      IDs.map(id => connectors.iTunes.artist({ id })),
+    artist: new DataLoader<string, Artist | null>((ids) => (
+      connectors.iTunes.artistsByIds(ids)
     )),
   };
 
@@ -1284,18 +1310,19 @@ const context = () => {
 };
 ```
 
-Now let's modify our `artist` field resolver under the `Song` root object to use the loader
+Now let's modify our `artist` field resolver under the `Song` object to use the loader
 
-```js
-Song: {
-  ...
-  artist: ({ artistId }, _, ctx) => (
-    ctx.loaders.artist.load(artistId)
+```ts
+artist: t.field({
+  type: ArtistRef,
+  nullable: true,
+  resolve: ({ artistId }, _args, ctx) => (
+    artistId ? ctx.loaders.artist.load(artistId) : null
   ),
-},
+}),
 ```
 
-Open the [Playground](http://localhost:4000) again and send the same query for `songs` with artist details
+Open [Sandbox](http://localhost:4000) again and send the same query for `songs` with artist details
 
 ```graphql
 {
@@ -1316,9 +1343,9 @@ Open the [Playground](http://localhost:4000) again and send the same query for `
 
 Each artist ID should only be looked up once! 🎉
 
-We can also solve this problem using a memoization cache instead of a DataLoader. [Apollo](https://www.apollographql.com/) built the [RESTDataSource](https://www.apollographql.com/docs/apollo-server/features/data-sources) to use a memoization cache on `GET` requests in order to solve this problem and I think it's more straightforward than using a DataLoader. We would just need to rewrite our connectors to `extend RESTDataSource`. I'll leave that exercise up to you!
+We can also solve this problem using a memoization cache instead of a DataLoader. Apollo built `RESTDataSource` to use a memoization cache on `GET` requests in order to solve this problem and I think it's more straightforward than using a DataLoader. We would just need to rewrite our connectors to extend `RESTDataSource`. I'll leave that exercise up to you!
 
-Even with a RESTDataSource, a DataLoader is still useful for [batching requests](https://www.apollographql.com/docs/apollo-server/features/data-sources/#batching) to APIs that support a batch endpoint (something like `getArtistsByIDs`).
+Even with a RESTDataSource, a DataLoader is still useful for batching requests to APIs that support a batch endpoint (something like `getArtistsByIDs`).
 
 ## 🚀 Conclusion
 
@@ -1329,11 +1356,12 @@ How do you feel? Heck, I'm proud of you!
 Today you learned about:
 
 * GraphQL servers (Apollo)
-* GraphQL tools (Playground, tracing, graphql-import)
+* GraphQL tools (Sandbox, schema exploration, type checking, and tests)
 * Organizing GraphQL projects
 * Queries
 * Schema / Types
 * Resolvers
+* Pothos defining schema and resolvers in one place
 * Context
 * Connectors (and making HTTP requests)
 * Execution levels (and passing data down)
