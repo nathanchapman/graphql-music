@@ -1,3 +1,5 @@
+import './types/artist.ts';
+import './queries/artists.ts';
 import './queries/greet.ts';
 import { builder } from './builder.ts';
 

@@ -1,3 +1,9 @@
-export interface GraphQLContext {}
+import { createConnectors, type Connectors } from './connectors/index.ts';
 
-export const createContext = (): GraphQLContext => ({});
+export interface GraphQLContext {
+  connectors: Connectors;
+}
+
+export const createContext = (): GraphQLContext => ({
+  connectors: createConnectors(),
+});
